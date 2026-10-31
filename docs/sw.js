@@ -1,5 +1,5 @@
 // 画面のファイルだけを手元に置く。記事の取得（中継役・note）には触らない
-const CACHE = 'note-reader-v1';
+const CACHE = 'note-reader-v2';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'rss.js', 'config.js', 'privacy.html',
   'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'
