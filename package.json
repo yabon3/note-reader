@@ -1,0 +1,9 @@
+{
+  "name": "note-reader-mobile",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node tools/dev-server.js",
+    "test": "node --test tests/"
+  }
+}

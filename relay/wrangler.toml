@@ -1,0 +1,12 @@
+name = "note-reader-relay"
+main = "worker.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# 依頼内容を残さない
+[observability]
+enabled = false
+
+[vars]
+# 公開するページのオリジン
+ALLOWED_ORIGINS = "https://yabon3.github.io"
