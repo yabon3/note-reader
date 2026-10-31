@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseFeed, mergeArticles, findNewArticles, summarizeNew, parseCreatorInput, readBackup, collectArts, safeUrl
+  parseFeed, mergeArticles, findNewArticles, summarizeNew, parseCreatorInput, collectArts, safeUrl
 } from '../docs/rss.js';
 
 test('findNewArticles: 持っていない記事だけ。記事0件の人は対象外', () => {
@@ -62,17 +62,6 @@ test('parseCreatorInput', () => {
   assert.equal(parseCreatorInput('二語 です'), null);
   assert.equal(parseCreatorInput('../x'), null);
   assert.equal(parseCreatorInput(''), null);
-});
-
-test('readBackup: 拡張機能の3形式を読み、他のキーは持ち込まない', () => {
-  const c = { noteId: 'a', name: 'A' };
-  assert.equal(readBackup([c]).creators.length, 1);
-  assert.equal(readBackup({ favoriteCreators: [c] }).creators.length, 1);
-  const r = readBackup({ app: 'note-reader', data: { favoriteCreators: [c, { name: 'IDなし' }], nfrStarred: [{ articleId: 'n1' }], discovery: {} } });
-  assert.equal(r.creators.length, 1);
-  assert.equal(r.starred.length, 1);
-  assert.equal('discovery' in r, false);
-  assert.throws(() => readBackup({ foo: 1 }));
 });
 
 test('safeUrl: https以外は通さない', () => {

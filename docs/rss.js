@@ -95,18 +95,6 @@ export function safeUrl(u) {
   return /^https:\/\//i.test(String(u || '')) ? u : null;
 }
 
-// 拡張機能のバックアップ（3形式）から登録とスターだけを取り出す
-export function readBackup(parsed) {
-  let data = null;
-  if (Array.isArray(parsed)) data = { favoriteCreators: parsed };
-  else if (parsed && parsed.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)) data = parsed.data;
-  else if (parsed && Array.isArray(parsed.favoriteCreators)) data = parsed;
-  if (!data || !Array.isArray(data.favoriteCreators)) throw new Error('登録データが見つかりません');
-  const creators = data.favoriteCreators.filter(c => c && c.noteId && c.name);
-  if (creators.length === 0) throw new Error('有効なクリエイターが1件もありません');
-  return { creators, starred: Array.isArray(data.nfrStarred) ? data.nfrStarred.filter(s => s && s.articleId) : [] };
-}
-
 export function categoryOf(c) { return c.category || UNCATEGORIZED; }
 
 export function listCategories(creators) {

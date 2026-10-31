@@ -116,19 +116,13 @@
 <dialog id="set-dlg">
   <form method="dialog">
     <h2>設定</h2>
-    <label>テーマ
-      <select id="set-theme">
-        <option value="auto">自動</option>
-        <option value="light">ライト</option>
-        <option value="dark">ダーク</option>
-      </select>
-    </label>
+    <fieldset id="set-theme">
+      <legend>テーマ</legend>
+      <label><input type="radio" name="theme" value="auto">自動</label>
+      <label><input type="radio" name="theme" value="light">ライト</label>
+      <label><input type="radio" name="theme" value="dark">ダーク</label>
+    </fieldset>
     <label id="notify-row" class="toggle" hidden>新着の通知<input type="checkbox" role="switch" id="set-notify"></label>
-    <div class="set-row">
-      <button type="button" class="sub" id="set-export">エクスポート</button>
-      <button type="button" class="sub" id="set-import">インポート</button>
-      <input type="file" id="set-file" accept=".json,application/json" hidden>
-    </div>
     <p id="set-msg" class="msg" hidden></p>
     <div id="install" hidden>
       <h3>ホーム画面に追加</h3>

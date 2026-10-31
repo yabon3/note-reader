@@ -1,6 +1,6 @@
 // =========================================================
 // 保存と取得（画面と service worker の両方から使う）
-// 保存は IndexedDB。キーは拡張機能のバックアップと揃える
+// 保存は IndexedDB
 // =========================================================
 import { RELAY_URL } from './config.js';
 import { parseFeed, mergeArticles, findNewArticles } from './rss.js';

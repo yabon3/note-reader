@@ -4,7 +4,7 @@
 // =========================================================
 import {
   UNCATEGORIZED, mergeArticles, parseCreatorInput, safeUrl,
-  readBackup, categoryOf, listCategories, collectArts, fmtDate
+  categoryOf, listCategories, collectArts, fmtDate
 } from './rss.js';
 import { dbGet, dbSet, fetchFeed } from './data.js';
 import { SYNC_TAG, NOTIFY_TAG } from './background.js';
@@ -358,7 +358,7 @@ function deleteCat() {
 }
 
 // ---------------------------------------------------------
-// 設定・バックアップ
+// 設定
 // ---------------------------------------------------------
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
 function applyTheme() {
@@ -368,9 +368,8 @@ function applyTheme() {
   document.querySelector('meta[name=theme-color]').content = dark ? '#16181f' : '#f0f2f4';
 }
 
-function setMsg(text, ok) {
+function setMsg(text) {
   $('set-msg').textContent = text;
-  $('set-msg').classList.toggle('ok', !!ok);
   $('set-msg').hidden = false;
 }
 
@@ -413,43 +412,6 @@ async function reloadCreators() {
   render({ keepScroll: true });
 }
 
-async function exportBackup() {
-  const payload = {
-    app: 'note-reader', version: 'mobile-1.0', exportedAt: new Date().toISOString(),
-    data: { favoriteCreators: state.creators, nfrStarred: [...state.starred.values()] }
-  };
-  const d = new Date(), p = n => String(n).padStart(2, '0');
-  const name = `note-reader-backup-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.json`;
-  const file = new File([JSON.stringify(payload, null, 2)], name, { type: 'application/json' });
-  // ホーム画面のアプリでは保存リンクが効かない機種があるので、共有を先に試す
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); setMsg(`エクスポートしました（${state.creators.length}名）`, true); }
-    catch (e) { if (e.name !== 'AbortError') setMsg('エクスポートできませんでした'); }
-    return;
-  }
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url; a.download = name;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-  setMsg(`エクスポートしました（${state.creators.length}名）`, true);
-}
-
-async function importBackup(file) {
-  try {
-    const { creators, starred } = readBackup(JSON.parse(await file.text()));
-    if (!confirm(`現在の登録 ${state.creators.length} 名を、ファイルの ${creators.length} 名で置き換えます`)) return;
-    state.creators = creators;
-    state.starred = new Map(starred.map(s => [s.articleId, s]));
-    Object.assign(state.settings, { category: null, creatorId: null });
-    await Promise.all([saveCreators(), saveStarred(), saveSettings()]);
-    render();
-    setMsg(`復元しました（${creators.length}名）`, true);
-  } catch (e) {
-    setMsg('読み込み失敗：' + e.message);
-  }
-}
-
 // ---------------------------------------------------------
 // 起動
 // ---------------------------------------------------------
@@ -462,7 +424,7 @@ function bindEvents() {
   $('cat-list').onclick = onDrawerClick;
   $('settings-btn').onclick = () => {
     openDrawer(false);
-    $('set-theme').value = state.settings.theme;
+    document.querySelector(`#set-theme input[value="${state.settings.theme}"]`).checked = true;
     $('set-msg').hidden = true;
     $('notify-row').hidden = !canNotify();
     if (canNotify()) $('set-notify').checked = state.settings.notify && Notification.permission === 'granted';
@@ -505,9 +467,6 @@ function bindEvents() {
   $('set-theme').onchange = e => { state.settings.theme = e.target.value; saveSettings(); applyTheme(); };
   systemDark.addEventListener('change', applyTheme);
   $('set-notify').onchange = e => setNotify(e.target.checked);
-  $('set-export').onclick = exportBackup;
-  $('set-import').onclick = () => $('set-file').click();
-  $('set-file').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importBackup(f); };
 
   // ブラウザで記事を読んで戻ってきたとき
   document.addEventListener('visibilitychange', async () => {
