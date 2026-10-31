@@ -527,18 +527,19 @@ function takeSharedInput() {
 }
 
 async function init() {
-  bindEvents();
+  // 読み込みを必ず先に行う。空のまま操作できると、保存で登録を上書きしてしまう
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { type: 'module' }).catch(() => {});
   const [creators, starred, settings] = await Promise.all([dbGet('favoriteCreators'), dbGet('nfrStarred'), dbGet('settings')]);
   state.creators = creators || [];
   state.starred = new Map((starred || []).map(s => [s.articleId, s]));
   Object.assign(state.settings, settings || {});
   applyTheme();
   render();
+  bindEvents();
   const shared = takeSharedInput();
   if (shared) openAddDialog(shared);
   refreshAll();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { type: 'module' }).catch(() => {});
   clearNotifications();
 }
 

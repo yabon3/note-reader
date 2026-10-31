@@ -1,7 +1,7 @@
 import { checkNewArticles, SYNC_TAG } from './background.js';
 
 // 画面のファイルだけを手元に置く。記事の取得（中継役・note）には触らない
-const CACHE = 'note-reader-v3';
+const CACHE = 'note-reader-v4';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'rss.js', 'data.js', 'background.js', 'config.js', 'privacy.html',
   'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'
@@ -24,7 +24,10 @@ self.addEventListener('notificationclick', e => {
 });
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // ブラウザの一時保存を通さず、同じ版のファイルを一度にそろえる
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -35,17 +38,12 @@ self.addEventListener('activate', e => {
   );
 });
 
-// 手元の分をすぐ返し、裏で新しい版を取っておく（次の起動で最新になる）
+// 手元の版だけを返す。1ファイルずつ更新すると古い画面と新しい処理が混ざるので、
+// 更新は CACHE の番号を上げた新しい service worker が丸ごと入れ替える
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  e.respondWith(caches.open(CACHE).then(async cache => {
-    const hit = await cache.match(e.request, { ignoreSearch: true });
-    const update = fetch(e.request).then(res => {
-      if (res.ok) cache.put(e.request.url.split('?')[0], res.clone());
-      return res;
-    });
-    if (hit) { update.catch(() => {}); return hit; }
-    return update;
-  }));
+  e.respondWith(caches.open(CACHE).then(async cache => (
+    (await cache.match(e.request, { ignoreSearch: true })) || fetch(e.request)
+  )));
 });
