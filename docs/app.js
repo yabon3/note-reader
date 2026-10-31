@@ -513,6 +513,8 @@ function bindEvents() {
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState !== 'visible') return;
     clearNotifications();
+    // 閉じずに戻ったときは、ブラウザが新しい版を確認しないので頼む
+    if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
     await reloadCreators();
     if (Date.now() - state.lastRefresh > RETURN_REFRESH_MS) refreshAll();
   });
@@ -527,8 +529,15 @@ function takeSharedInput() {
 }
 
 async function init() {
+  if ('serviceWorker' in navigator) {
+    // 新しい版に切り替わったら読み込み直す。入力中なら次の起動に回す
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && !document.querySelector('dialog[open]')) location.reload();
+    });
+    navigator.serviceWorker.register('sw.js', { type: 'module' }).catch(() => {});
+  }
   // 読み込みを必ず先に行う。空のまま操作できると、保存で登録を上書きしてしまう
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { type: 'module' }).catch(() => {});
   const [creators, starred, settings] = await Promise.all([dbGet('favoriteCreators'), dbGet('nfrStarred'), dbGet('settings')]);
   state.creators = creators || [];
   state.starred = new Map((starred || []).map(s => [s.articleId, s]));
