@@ -1,8 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  parseFeed, mergeArticles, parseCreatorInput, readBackup, collectArts, safeUrl
+  parseFeed, mergeArticles, findNewArticles, summarizeNew, parseCreatorInput, readBackup, collectArts, safeUrl
 } from '../docs/rss.js';
+
+test('findNewArticles: 持っていない記事だけ。記事0件の人は対象外', () => {
+  const fresh = [{ articleId: 'n1' }, { articleId: 'n2' }];
+  assert.deepEqual(findNewArticles({ latestArticles: [{ articleId: 'n1' }] }, fresh), [{ articleId: 'n2' }]);
+  assert.deepEqual(findNewArticles({ latestArticles: [] }, fresh), []);
+  assert.deepEqual(findNewArticles({}, fresh), []);
+});
+
+test('summarizeNew: 前の通知に件数を足し、新しい順に3行まで', () => {
+  const added = [{ creatorName: 'A', title: '1' }, { creatorName: 'B', title: '2' }];
+  assert.deepEqual(summarizeNew(added), { count: 2, lines: ['A：1', 'B：2'] });
+  assert.deepEqual(summarizeNew(added, { count: 5, lines: ['C：3', 'D：4', 'E：5'] }), {
+    count: 7, lines: ['A：1', 'B：2', 'C：3']
+  });
+});
 
 const FEED = `<?xml version="1.0"?><rss><channel>
 <title>テスト &amp; 名前</title><link>https://note.com/abc</link>

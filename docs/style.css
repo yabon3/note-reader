@@ -152,6 +152,8 @@ dialog input[type=text]:not([hidden]) + .msg { margin-top:8px; }
 .pri:disabled { opacity:.6; }
 .sub { background:var(--bg3); border:1px solid var(--border); }
 .danger { color:var(--danger); border:1px solid var(--danger); }
+dialog label.check { display:flex; align-items:center; gap:8px; font-size:14px; color:inherit; }
+dialog label.check input { width:18px; height:18px; margin:0; }
 .set-row { display:flex; gap:8px; }
 .set-row .sub { flex:1; }
 .msg { color:var(--danger) !important; }

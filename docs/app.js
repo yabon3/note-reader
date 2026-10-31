@@ -2,14 +2,16 @@
 // Note Reader（スマホ版）画面
 // 登録と既読はこの端末の中（IndexedDB）にだけ保存する
 // =========================================================
-import { RELAY_URL } from './config.js';
 import {
-  UNCATEGORIZED, parseFeed, mergeArticles, parseCreatorInput, safeUrl,
+  UNCATEGORIZED, mergeArticles, parseCreatorInput, safeUrl,
   readBackup, categoryOf, listCategories, collectArts, fmtDate
 } from './rss.js';
+import { dbGet, dbSet, fetchFeed } from './data.js';
+import { SYNC_TAG, NOTIFY_TAG } from './background.js';
 
 const FETCH_CONCURRENCY = 6;
 const RETURN_REFRESH_MS = 10 * 60 * 1000;   // ブラウザから戻ったとき、この時間以上空いていれば更新
+const SYNC_INTERVAL_MS = 60 * 60 * 1000;    // 希望する確認の間隔。実際の間隔はブラウザが決める
 const NEW_CAT = '__new__';
 
 const $ = id => document.getElementById(id);
@@ -20,7 +22,7 @@ const escH = s => String(s ?? '').replace(/[&<>"']/g, c => (
 const state = {
   creators: [],
   starred: new Map(),
-  settings: { filter: 'unread', sort: 'date:desc', theme: 'auto', collapsed: [], category: null, creatorId: null },
+  settings: { filter: 'unread', sort: 'date:desc', theme: 'auto', collapsed: [], category: null, creatorId: null, notify: false },
   query: '',
   arts: new Map(),      // いま画面にある記事（articleId → 記事）
   refreshing: false,
@@ -30,31 +32,8 @@ const state = {
 };
 
 // ---------------------------------------------------------
-// 保存（IndexedDB。キーは拡張機能のバックアップと揃える）
+// 保存
 // ---------------------------------------------------------
-const dbReady = new Promise((resolve, reject) => {
-  const req = indexedDB.open('note-reader', 1);
-  req.onupgradeneeded = () => req.result.createObjectStore('kv');
-  req.onsuccess = () => resolve(req.result);
-  req.onerror = () => reject(req.error);
-});
-async function dbGet(key) {
-  const db = await dbReady;
-  return new Promise((resolve, reject) => {
-    const r = db.transaction('kv').objectStore('kv').get(key);
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = () => reject(r.error);
-  });
-}
-async function dbSet(key, value) {
-  const db = await dbReady;
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('kv', 'readwrite');
-    tx.objectStore('kv').put(value, key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
 const saveCreators = () => dbSet('favoriteCreators', state.creators);
 const saveStarred  = () => dbSet('nfrStarred', [...state.starred.values()]);
 const saveSettings = () => dbSet('settings', state.settings);
@@ -62,13 +41,6 @@ const saveSettings = () => dbSet('settings', state.settings);
 // ---------------------------------------------------------
 // 取得
 // ---------------------------------------------------------
-async function fetchFeed(noteId) {
-  const res = await fetch(`${RELAY_URL}/rss/${encodeURIComponent(noteId)}`);
-  if (res.status === 404) { const e = new Error('見つかりません'); e.notFound = true; throw e; }
-  if (!res.ok) throw new Error(`取得失敗（${res.status}）`);
-  return parseFeed(await res.text());
-}
-
 async function refreshAll() {
   if (state.refreshing || state.creators.length === 0) return;
   state.refreshing = true;
@@ -402,6 +374,45 @@ function setMsg(text, ok) {
   $('set-msg').hidden = false;
 }
 
+// ---------------------------------------------------------
+// 新着の通知（Android の Chrome にインストールしたアプリだけ）
+// ---------------------------------------------------------
+const canNotify = () => 'Notification' in window && 'serviceWorker' in navigator
+  && 'ServiceWorkerRegistration' in window && 'periodicSync' in ServiceWorkerRegistration.prototype;
+
+async function setNotify(on) {
+  const reg = await navigator.serviceWorker.ready;
+  const fail = text => { $('set-notify').checked = false; setMsg(text); };
+  $('set-msg').hidden = true;
+  if (on) {
+    if (await Notification.requestPermission() !== 'granted') return fail('通知が許可されていません');
+    try {
+      await reg.periodicSync.register(SYNC_TAG, { minInterval: SYNC_INTERVAL_MS });
+    } catch (e) {
+      return fail('インストールしたアプリから設定してください');
+    }
+  } else {
+    await reg.periodicSync.unregister(SYNC_TAG);
+  }
+  state.settings.notify = on;
+  saveSettings();
+}
+
+async function clearNotifications() {
+  if (!canNotify()) return;
+  const reg = await navigator.serviceWorker.ready;
+  (await reg.getNotifications({ tag: NOTIFY_TAG })).forEach(n => n.close());
+}
+
+// アプリを閉じている間に保存された新着を読み直す。
+// 変わっていなければ描き直さない（読んだ記事が一覧からすぐ消えないように）
+async function reloadCreators() {
+  const saved = await dbGet('favoriteCreators');
+  if (state.refreshing || !saved || JSON.stringify(saved) === JSON.stringify(state.creators)) return;
+  state.creators = saved;
+  render({ keepScroll: true });
+}
+
 async function exportBackup() {
   const payload = {
     app: 'note-reader', version: 'mobile-1.0', exportedAt: new Date().toISOString(),
@@ -453,6 +464,8 @@ function bindEvents() {
     openDrawer(false);
     $('set-theme').value = state.settings.theme;
     $('set-msg').hidden = true;
+    $('notify-row').hidden = !canNotify();
+    if (canNotify()) $('set-notify').checked = state.settings.notify && Notification.permission === 'granted';
     $('install').hidden = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
     $('set-dlg').showModal();
   };
@@ -491,13 +504,17 @@ function bindEvents() {
 
   $('set-theme').onchange = e => { state.settings.theme = e.target.value; saveSettings(); applyTheme(); };
   systemDark.addEventListener('change', applyTheme);
+  $('set-notify').onchange = e => setNotify(e.target.checked);
   $('set-export').onclick = exportBackup;
   $('set-import').onclick = () => $('set-file').click();
   $('set-file').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importBackup(f); };
 
   // ブラウザで記事を読んで戻ってきたとき
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && Date.now() - state.lastRefresh > RETURN_REFRESH_MS) refreshAll();
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    clearNotifications();
+    await reloadCreators();
+    if (Date.now() - state.lastRefresh > RETURN_REFRESH_MS) refreshAll();
   });
 }
 
@@ -521,7 +538,8 @@ async function init() {
   if (shared) openAddDialog(shared);
   refreshAll();
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { type: 'module' }).catch(() => {});
+  clearNotifications();
 }
 
 init();

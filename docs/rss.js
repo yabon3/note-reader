@@ -5,6 +5,7 @@
 
 export const ARTICLES_PER_CREATOR = 24;
 export const UNCATEGORIZED = '未分類';
+const NOTIFY_LINES = 3;
 
 const EXCLUDED_PATHS = new Set([
   'recommends','following','contests','hashtag','search',
@@ -61,6 +62,23 @@ export function mergeArticles(creator, fresh) {
   const newCount = fresh.filter(a => !readMap.has(a.articleId)).length;
   creator.latestArticles = fresh.map(a => ({ ...a, isRead: readMap.get(a.articleId) || false }));
   return newCount;
+}
+
+// 通知の対象になる新しい記事。記事を1件も持っていない人（取り込んだ直後など）は対象にしない
+export function findNewArticles(creator, fresh) {
+  const known = creator.latestArticles || [];
+  if (known.length === 0) return [];
+  const ids = new Set(known.map(a => a.articleId));
+  return fresh.filter(a => !ids.has(a.articleId));
+}
+
+// 通知の中身。prev は前の通知の分（{ count, lines }）
+export function summarizeNew(added, prev) {
+  const lines = added.map(a => `${a.creatorName}：${a.title}`);
+  return {
+    count: added.length + (prev ? prev.count : 0),
+    lines: [...lines, ...(prev ? prev.lines : [])].slice(0, NOTIFY_LINES)
+  };
 }
 
 // 貼り付けられた文字列（URL・ID・@ID・共有の文章）→ noteのID。読めなければ null
