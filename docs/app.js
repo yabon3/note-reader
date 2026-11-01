@@ -28,7 +28,8 @@ const state = {
   refreshing: false,
   lastRefresh: 0,
   editingId: null,
-  editingCat: null
+  editingCat: null,
+  markingIds: null
 };
 
 // ---------------------------------------------------------
@@ -211,10 +212,15 @@ function toggleStar(articleId, btn) {
 function markAllRead() {
   const targets = [...state.arts.values()].filter(a => !a.isRead);
   if (targets.length === 0) return;
-  if (!confirm(`表示中の${targets.length}件を既読にします`)) return;
-  const ids = new Set(targets.map(a => a.articleId));
+  state.markingIds = new Set(targets.map(a => a.articleId));
+  $('markall-msg').textContent = `表示中の${targets.length}件を既読にします`;
+  $('markall-dlg').showModal();
+}
+function submitMarkAll() {
+  const ids = state.markingIds;
   state.creators.forEach(c => (c.latestArticles || []).forEach(a => { if (ids.has(a.articleId)) a.isRead = true; }));
   saveCreators();
+  $('markall-dlg').close();
   render();
 }
 
@@ -420,6 +426,7 @@ function bindEvents() {
   $('scrim').onclick = () => openDrawer(false);
   $('refresh-btn').onclick = refreshAll;
   $('markall-btn').onclick = markAllRead;
+  $('markall-ok').onclick = submitMarkAll;
   $('add-btn').onclick = () => openAddDialog();
   $('cat-list').onclick = onDrawerClick;
   $('settings-btn').onclick = () => {
