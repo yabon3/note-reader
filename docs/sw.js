@@ -1,7 +1,7 @@
 import { checkNewArticles, SYNC_TAG } from './background.js';
 
 // 画面のファイルだけを手元に置く。記事の取得（中継役・note）には触らない
-const CACHE = 'note-reader-v8';
+const CACHE = 'note-reader-v9';
 const SHELL = [
   './', 'index.html', 'style.css', 'app.js', 'rss.js', 'data.js', 'background.js', 'config.js', 'privacy.html',
   'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'

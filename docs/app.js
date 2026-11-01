@@ -28,8 +28,7 @@ const state = {
   refreshing: false,
   lastRefresh: 0,
   editingId: null,
-  editingCat: null,
-  markingIds: null
+  editingCat: null
 };
 
 // ---------------------------------------------------------
@@ -209,19 +208,21 @@ function toggleStar(articleId, btn) {
   saveStarred();
 }
 
+function askConfirm(message, onOk) {
+  $('confirm-msg').textContent = message;
+  $('confirm-ok').onclick = () => { $('confirm-dlg').close(); onOk(); };
+  $('confirm-dlg').showModal();
+}
+
 function markAllRead() {
   const targets = [...state.arts.values()].filter(a => !a.isRead);
   if (targets.length === 0) return;
-  state.markingIds = new Set(targets.map(a => a.articleId));
-  $('markall-msg').textContent = `表示中の${targets.length}件を既読にします`;
-  $('markall-dlg').showModal();
-}
-function submitMarkAll() {
-  const ids = state.markingIds;
-  state.creators.forEach(c => (c.latestArticles || []).forEach(a => { if (ids.has(a.articleId)) a.isRead = true; }));
-  saveCreators();
-  $('markall-dlg').close();
-  render();
+  askConfirm(`表示中の${targets.length}件を既読にします`, () => {
+    const ids = new Set(targets.map(a => a.articleId));
+    state.creators.forEach(c => (c.latestArticles || []).forEach(a => { if (ids.has(a.articleId)) a.isRead = true; }));
+    saveCreators();
+    render();
+  });
 }
 
 // ---------------------------------------------------------
@@ -330,12 +331,14 @@ function submitEdit() {
 }
 function deleteCreator() {
   const c = state.creators.find(c => c.id === state.editingId);
-  if (!c || !confirm(`${c.name} を削除します`)) return;
-  state.creators = state.creators.filter(x => x.id !== c.id);
-  if (String(state.settings.creatorId) === String(c.id)) state.settings.creatorId = null;
-  saveCreators(); saveSettings();
-  $('edit-dlg').close();
-  render();
+  if (!c) return;
+  askConfirm(`${c.name} を削除します`, () => {
+    state.creators = state.creators.filter(x => x.id !== c.id);
+    if (String(state.settings.creatorId) === String(c.id)) state.settings.creatorId = null;
+    saveCreators(); saveSettings();
+    $('edit-dlg').close();
+    render();
+  });
 }
 
 function openCatDialog(cat) {
@@ -357,10 +360,11 @@ function submitCat() {
   render({ keepScroll: true });
 }
 function deleteCat() {
-  if (!confirm(`カテゴリ「${state.editingCat}」を削除します（クリエイターは${UNCATEGORIZED}へ移動）`)) return;
-  renameCategory(state.editingCat, UNCATEGORIZED);
-  $('cat-dlg').close();
-  render();
+  askConfirm(`カテゴリ「${state.editingCat}」を削除します（クリエイターは${UNCATEGORIZED}へ移動）`, () => {
+    renameCategory(state.editingCat, UNCATEGORIZED);
+    $('cat-dlg').close();
+    render();
+  });
 }
 
 // ---------------------------------------------------------
@@ -426,7 +430,6 @@ function bindEvents() {
   $('scrim').onclick = () => openDrawer(false);
   $('refresh-btn').onclick = refreshAll;
   $('markall-btn').onclick = markAllRead;
-  $('markall-ok').onclick = submitMarkAll;
   $('add-btn').onclick = () => openAddDialog();
   $('cat-list').onclick = onDrawerClick;
   $('settings-btn').onclick = () => {
