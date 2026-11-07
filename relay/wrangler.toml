@@ -9,4 +9,4 @@ enabled = false
 
 [vars]
 # 公開するページのオリジン
-ALLOWED_ORIGINS = "https://yabon3.github.io"
+ALLOWED_ORIGINS = "https://happycodeworks.github.io"
